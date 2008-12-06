@@ -50,12 +50,15 @@ module CementHorses #:nodoc:
             !send(field).blank? && send(field) > Time.now
           end
         eval
+        named_scope :recent, lambda { { :conditions => ['created_at > ?', 1.week.ago] } }
 
         if respond_to? 'named_scope'
           methods += <<-eval
             named_scope :scheduled,
-              :conditions => ['`#{configuration[:start]}` > ?', Time.now],
-              :order => '`#{configuration[:start]}` DESC'
+              lambda { 
+                {:conditions => ['`#{configuration[:start]}` > ?', Time.now],
+                :order => '`#{configuration[:start]}` DESC' }
+              }
           eval
         end
 
@@ -73,12 +76,15 @@ module CementHorses #:nodoc:
           if respond_to? 'named_scope'
             methods += <<-eval
               named_scope :#{configuration[:start].to_s.gsub(/_(at|on)$/, '')},
-                :conditions => ['`#{configuration[:start]}` < ? AND (`#{configuration[:end]}` IS NULL OR `#{configuration[:end]}` > ?)', *[Time.now] * 2],
-                :order => '`#{configuration[:start]}` DESC'
-
+                lambda {{
+                  :conditions => ['`#{configuration[:start]}` < ? AND (`#{configuration[:end]}` IS NULL OR `#{configuration[:end]}` > ?)', *[Time.now] * 2],
+                  :order => '`#{configuration[:start]}` DESC'
+                }}
               named_scope :#{configuration[:end].to_s.gsub(/_(at|on)$/, '')},
-                :conditions => ['`#{configuration[:end]}` < ?', Time.now],
-                :order => '`#{configuration[:end]}` DESC'
+                lambda {{
+                  :conditions => ['`#{configuration[:end]}` < ?', Time.now],
+                  :order => '`#{configuration[:end]}` DESC'
+                }}
             eval
           end
         else
@@ -90,7 +96,10 @@ module CementHorses #:nodoc:
 
           if respond_to? 'named_scope'
             methods += <<-eval
-              named_scope :#{configuration[:start].to_s.gsub(/_(at|on)$/, '')}, :conditions => ['`#{configuration[:start]}` < ?', Time.now]
+              named_scope :#{configuration[:start].to_s.gsub(/_(at|on)$/, '')},
+                lambda {{
+                   :conditions => ['`#{configuration[:start]}` < ?', Time.now]
+                  }}
             eval
           end
         end

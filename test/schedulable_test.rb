@@ -2,7 +2,6 @@ require 'test/unit'
 require 'rubygems'
 require 'active_record'
 require "#{File.dirname(__FILE__)}/../init"
-
 ActiveRecord::Base.establish_connection(:adapter => 'sqlite3', :dbfile => ':memory:')
 
 def setup_db
@@ -13,6 +12,10 @@ def setup_db
     end
     create_table :admins do |t|
       t.timestamp :authorized_on, :unauthorized_on
+    end
+
+    create_table :temporal_bobs do |t|
+      t.timestamp :inhered_on, :dehered_on
     end
   end
 end
@@ -37,6 +40,7 @@ class Admin < ActiveRecord::Base
   schedulable :authorized_on, :unauthorized_on, :end_required => true
 end
 
+  
 class SchedulableTest < Test::Unit::TestCase
   def setup
     setup_db
@@ -133,4 +137,45 @@ class SchedulableTest < Test::Unit::TestCase
     assert admin.errors.on(:unauthorized_on)
   end
   
+  def test_named_scope_based_methods_work_on_old_class
+    require 'mocha'
+    
+    real_now = Time.now
+    day_ago = 1.day.ago
+    two_days_ago = 2.days.ago
+    three_days_ago = 3.days.ago
+    four_days_ago = 4.days.ago
+    tomorrow = 1.day.from_now
+    
+    Time.stubs(:now).returns(three_days_ago)
+
+    eval <<-eval
+    class TemporalBob < ActiveRecord::Base
+      schedulable :inhered_on, :dehered_on
+    end
+    eval
+    
+    Time.stubs(:now).returns(real_now)
+    
+    bob_live_two = TemporalBob.create(:inhered_on => two_days_ago)
+    bob_live_three = TemporalBob.create(:inhered_on => three_days_ago)
+    bob_scheduled = TemporalBob.create(:inhered_on => tomorrow)
+    bob_dead = TemporalBob.create(:inhered_on => three_days_ago, :dehered_on => day_ago)
+
+    
+    assert bob_live_two.inhered?
+    assert bob_live_three.inhered?
+    assert !bob_scheduled.inhered?
+    assert !bob_dead.inhered?
+    
+    assert TemporalBob.scheduled.include?(bob_scheduled)
+    assert !TemporalBob.scheduled.include?(bob_live_two)
+    assert !TemporalBob.scheduled.include?(bob_live_three)
+    assert !TemporalBob.scheduled.include?(bob_dead)
+
+    assert TemporalBob.inhered.include?(bob_live_two)
+    assert TemporalBob.inhered.include?(bob_live_three)
+    assert !TemporalBob.inhered.include?(bob_scheduled)
+    assert !TemporalBob.inhered.include?(bob_dead)
+  end
 end
