@@ -50,7 +50,12 @@ module CementHorses #:nodoc:
             !send(field).blank? && send(field) > Time.now
           end
         eval
-        named_scope :recent, lambda { { :conditions => ['created_at > ?', 1.week.ago] } }
+
+        methods += <<-eval
+          def #{configuration[:start].to_s.gsub(/_(at|on)$/, '')}!
+            #{configuration[:start]} = Time.now
+          end
+        eval
 
         if respond_to? 'named_scope'
           methods += <<-eval
